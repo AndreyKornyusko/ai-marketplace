@@ -2,6 +2,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator client_backend {
+  provider = "prisma-client-js"
+  output   = "../backend/node_modules/.prisma/client"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -27,6 +32,7 @@ model Product {
   embedding    ProductEmbedding?
   orderItems   OrderItem[]
   reservations InventoryReservation[]
+  reviews      Review[]
 
   @@index([category], map: "idx_products_category")
   @@index([isActive], map: "idx_products_is_active")
@@ -83,6 +89,7 @@ model User {
   addresses UserAddress[]
   orders    Order[]
   tickets   SupportTicket[]
+  reviews   Review[]
 
   @@map("users")
 }
@@ -193,6 +200,23 @@ model InventoryReservation {
   @@index([productId, status], map: "idx_inventory_reservations_product_id")
   @@index([expiresAt], map: "idx_inventory_reservations_expires_at")
   @@map("inventory_reservations")
+}
+
+// ─── Review Domain ─────────────────────────────────────────────────────────
+
+model Review {
+  id           String   @id @default(uuid()) @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId       String?  @map("user_id") @db.Uuid
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  reviewerName String   @map("reviewer_name")
+  rating       Int
+  comment      String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([productId], map: "idx_reviews_product_id")
+  @@map("reviews")
 }
 
 // ─── Support Domain ────────────────────────────────────────────────────────

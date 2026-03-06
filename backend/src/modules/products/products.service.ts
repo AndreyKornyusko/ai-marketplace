@@ -1,10 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsQueryDto, SortOption } from './dto/products-query.dto';
 import { ProductSummaryDto } from './dto/product-summary.dto';
+import { ProductDetailDto } from './dto/product-detail.dto';
+import { ProductVariantDto } from './dto/product-variant.dto';
 import { CategoryCountDto } from './dto/category-count.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
+import { ReviewDto, ReviewsListResponseDto } from './dto/review.dto';
 import {
   ProductsListResponseDto,
   ProductsMetaDto,
@@ -16,8 +20,6 @@ type ProductWithVariants = Prisma.ProductGetPayload<{
 
 @Injectable()
 export class ProductsService {
-  private readonly logger = new Logger(ProductsService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: ProductsQueryDto): Promise<ProductsListResponseDto> {
@@ -137,6 +139,158 @@ export class ProductsService {
       },
       { excludeExtraneousValues: true },
     );
+  }
+
+  async findBySlug(slug: string): Promise<ProductDetailDto> {
+    const product = await this.prisma.product.findUnique({
+      where: { slug, isActive: true },
+      include: { variants: true },
+    });
+
+    if (product === null) {
+      throw new NotFoundException(`Product with slug "${slug}" not found`);
+    }
+
+    const [related, reviewAgg] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { category: product.category, isActive: true, slug: { not: slug } },
+        include: { variants: true },
+        orderBy: { createdAt: 'desc' },
+        take: 4,
+      }),
+      this.prisma.review.aggregate({
+        where: { productId: product.id },
+        _avg: { rating: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    const totalStock = product.variants.reduce((sum, v) => sum + v.stock, 0);
+    const isAvailable = totalStock > 0 && product.isActive;
+    const reviewCount = reviewAgg._count.id;
+    const averageRating =
+      reviewAgg._avg.rating !== null
+        ? Math.round(reviewAgg._avg.rating * 10) / 10
+        : null;
+
+    return plainToInstance(
+      ProductDetailDto,
+      {
+        id: product.id,
+        slug: product.slug,
+        sku: product.sku,
+        name: product.name,
+        description: product.description,
+        price: Number(product.price),
+        imageUrl: product.imageUrl ?? null,
+        category: product.category,
+        tags: product.tags,
+        stock: totalStock,
+        isAvailable,
+        variants: product.variants.map((v) =>
+          plainToInstance(
+            ProductVariantDto,
+            {
+              id: v.id,
+              name: v.name,
+              value: v.value,
+              priceDelta: Number(v.priceDelta),
+              stock: v.stock,
+            },
+            { excludeExtraneousValues: true },
+          ),
+        ),
+        relatedProducts: related.map((p) => this.toSummaryDto(p)),
+        averageRating,
+        reviewCount,
+      },
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  async getReviews(slug: string, page: number, limit: number): Promise<ReviewsListResponseDto> {
+    const product = await this.prisma.product.findUnique({
+      where: { slug, isActive: true },
+      select: { id: true },
+    });
+
+    if (product === null) {
+      throw new NotFoundException(`Product with slug "${slug}" not found`);
+    }
+
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
+        where: { productId: product.id },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.review.count({ where: { productId: product.id } }),
+    ]);
+
+    const data = reviews.map((r) =>
+      plainToInstance(
+        ReviewDto,
+        {
+          id: r.id,
+          productId: r.productId,
+          userId: r.userId,
+          reviewerName: r.reviewerName,
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt,
+        },
+        { excludeExtraneousValues: true },
+      ),
+    );
+
+    return plainToInstance(
+      ReviewsListResponseDto,
+      { data, total, page, limit, totalPages: Math.ceil(total / limit) },
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  async createReview(productId: string, body: CreateReviewDto): Promise<ReviewDto> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId, isActive: true },
+      select: { id: true },
+    });
+
+    if (product === null) {
+      throw new NotFoundException(`Product "${productId}" not found`);
+    }
+
+    const review = await this.prisma.review.create({
+      data: {
+        productId,
+        reviewerName: body.reviewerName,
+        rating: body.rating,
+        comment: body.comment,
+      },
+    });
+
+    return plainToInstance(
+      ReviewDto,
+      {
+        id: review.id,
+        productId: review.productId,
+        userId: review.userId,
+        reviewerName: review.reviewerName,
+        rating: review.rating,
+        comment: review.comment,
+        createdAt: review.createdAt,
+      },
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  async findAllSlugs(): Promise<string[]> {
+    const products = await this.prisma.product.findMany({
+      where: { isActive: true },
+      select: { slug: true },
+    });
+    return products.map((p) => p.slug);
   }
 
   private buildOrderBy(

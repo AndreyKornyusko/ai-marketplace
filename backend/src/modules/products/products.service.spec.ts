@@ -1,8 +1,10 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Prisma } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsQueryDto, SortOption } from './dto/products-query.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
 
 // ---------------------------------------------------------------------------
 // Prisma mock helpers
@@ -11,8 +13,10 @@ import { ProductsQueryDto, SortOption } from './dto/products-query.dto';
 type MockProduct = {
   id: string;
   slug: string;
+  sku: string;
   name: string;
-  price: Prisma.Decimal;
+  description: string;
+  price: Decimal;
   imageUrl: string | null;
   category: string;
   tags: string[];
@@ -24,13 +28,29 @@ type MockProduct = {
 type MockVariant = {
   id: string;
   productId: string;
+  name: string;
+  value: string;
+  priceDelta: Decimal;
   stock: number;
+};
+
+type MockReview = {
+  id: string;
+  productId: string;
+  userId: string | null;
+  reviewerName: string;
+  rating: number;
+  comment: string;
+  createdAt: Date;
 };
 
 function makeVariant(overrides: Partial<MockVariant> = {}): MockVariant {
   return {
     id: 'variant-1',
     productId: 'product-1',
+    name: 'Size',
+    value: 'M',
+    priceDelta: new Decimal('0'),
     stock: 10,
     ...overrides,
   };
@@ -40,8 +60,10 @@ function makeProduct(overrides: Partial<MockProduct> = {}): MockProduct {
   return {
     id: 'product-1',
     slug: 'test-product',
+    sku: 'SKU-001',
     name: 'Test Product',
-    price: new Prisma.Decimal('99.99'),
+    description: 'A great test product.',
+    price: new Decimal('99.99'),
     imageUrl: 'https://example.com/img.jpg',
     category: 'shoes',
     tags: ['running', 'sport'],
@@ -52,14 +74,34 @@ function makeProduct(overrides: Partial<MockProduct> = {}): MockProduct {
   };
 }
 
-// Minimal PrismaService mock — only the product model methods we need.
+function makeReview(overrides: Partial<MockReview> = {}): MockReview {
+  return {
+    id: 'review-1',
+    productId: 'product-1',
+    userId: null,
+    reviewerName: 'Jane Doe',
+    rating: 4,
+    comment: 'Really liked it.',
+    createdAt: new Date('2025-03-01T00:00:00Z'),
+    ...overrides,
+  };
+}
+
+// Minimal PrismaService mock — only the model methods we need.
 function buildPrismaMock() {
   return {
     product: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn(),
       groupBy: jest.fn(),
+    },
+    review: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+      aggregate: jest.fn(),
+      create: jest.fn(),
     },
   };
 }
@@ -71,8 +113,8 @@ type PrismaMock = ReturnType<typeof buildPrismaMock>;
 // ---------------------------------------------------------------------------
 
 const DEFAULT_PRICE_AGG = {
-  _min: { price: new Prisma.Decimal('9.99') },
-  _max: { price: new Prisma.Decimal('199.99') },
+  _min: { price: new Decimal('9.99') },
+  _max: { price: new Decimal('199.99') },
 };
 
 const DEFAULT_CATEGORY_ROWS = [{ category: 'shoes' }, { category: 'bags' }];
@@ -233,7 +275,7 @@ describe('ProductsService', () => {
     // Price range filter
     // -----------------------------------------------------------------------
 
-    it('should apply minPrice filter as Prisma.Decimal gte', async () => {
+    it('should apply minPrice filter as Decimal gte', async () => {
       prismaMock.product.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
@@ -247,11 +289,11 @@ describe('ProductsService', () => {
         ...unknown[]
       ][];
       expect(listCall[0].where).toMatchObject({
-        price: { gte: new Prisma.Decimal(50) },
+        price: { gte: new Decimal(50) },
       });
     });
 
-    it('should apply maxPrice filter as Prisma.Decimal lte', async () => {
+    it('should apply maxPrice filter as Decimal lte', async () => {
       prismaMock.product.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
@@ -265,7 +307,7 @@ describe('ProductsService', () => {
         ...unknown[]
       ][];
       expect(listCall[0].where).toMatchObject({
-        price: { lte: new Prisma.Decimal(150) },
+        price: { lte: new Decimal(150) },
       });
     });
 
@@ -284,8 +326,8 @@ describe('ProductsService', () => {
       ][];
       expect(listCall[0].where).toMatchObject({
         price: {
-          gte: new Prisma.Decimal(20),
-          lte: new Prisma.Decimal(200),
+          gte: new Decimal(20),
+          lte: new Decimal(200),
         },
       });
     });
@@ -615,8 +657,8 @@ describe('ProductsService', () => {
       expect(result.isAvailable).toBe(false);
     });
 
-    it('should map price from Prisma.Decimal to number', async () => {
-      const product = makeProduct({ price: new Prisma.Decimal('49.95') });
+    it('should map price from Decimal to number', async () => {
+      const product = makeProduct({ price: new Decimal('49.95') });
       prismaMock.product.findMany.mockResolvedValueOnce([product]);
 
       const [result] = await service.findFeatured();
@@ -639,7 +681,7 @@ describe('ProductsService', () => {
         id: 'abc-123',
         slug: 'my-product',
         name: 'My Product',
-        price: new Prisma.Decimal('19.99'),
+        price: new Decimal('19.99'),
         imageUrl: 'https://cdn.example.com/photo.png',
         category: 'accessories',
         tags: ['new', 'sale'],
@@ -660,6 +702,322 @@ describe('ProductsService', () => {
         stock: 4,
         isAvailable: true,
       });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // findBySlug
+  // -------------------------------------------------------------------------
+
+  describe('findBySlug', () => {
+    it('should return ProductDetailDto with all fields for a known slug', async () => {
+      const product = makeProduct();
+      const related = [makeProduct({ id: 'product-2', slug: 'related-product' })];
+      const reviewAgg = { _avg: { rating: 4.3 }, _count: { id: 7 } };
+
+      prismaMock.product.findUnique.mockResolvedValueOnce(product);
+      prismaMock.product.findMany.mockResolvedValueOnce(related); // related products
+      prismaMock.review.aggregate.mockResolvedValueOnce(reviewAgg);
+
+      const result = await service.findBySlug('test-product');
+
+      expect(result.slug).toBe('test-product');
+      expect(result.sku).toBe('SKU-001');
+      expect(result.name).toBe('Test Product');
+      expect(result.price).toBe(99.99);
+      expect(result.reviewCount).toBe(7);
+      expect(result.averageRating).toBe(4.3); // Math.round(4.3 * 10) / 10
+      expect(result.relatedProducts).toHaveLength(1);
+    });
+
+    it('should query product with slug and isActive:true', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce(makeProduct());
+      prismaMock.product.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.aggregate.mockResolvedValueOnce({ _avg: { rating: null }, _count: { id: 0 } });
+
+      await service.findBySlug('test-product');
+
+      expect(prismaMock.product.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { slug: 'test-product', isActive: true },
+          include: { variants: true },
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when slug does not match any active product', async () => {
+      prismaMock.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.findBySlug('ghost-product')).rejects.toThrow(
+        new NotFoundException('Product with slug "ghost-product" not found'),
+      );
+    });
+
+    it('should set averageRating to null when there are no reviews', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce(makeProduct());
+      prismaMock.product.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.aggregate.mockResolvedValueOnce({ _avg: { rating: null }, _count: { id: 0 } });
+
+      const result = await service.findBySlug('test-product');
+
+      expect(result.averageRating).toBeNull();
+      expect(result.reviewCount).toBe(0);
+    });
+
+    it('should round averageRating to one decimal place', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce(makeProduct());
+      prismaMock.product.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.aggregate.mockResolvedValueOnce({ _avg: { rating: 3.666 }, _count: { id: 3 } });
+
+      const result = await service.findBySlug('test-product');
+
+      expect(result.averageRating).toBe(3.7);
+    });
+
+    it('should compute isAvailable as false when all variants have zero stock', async () => {
+      const product = makeProduct({ variants: [makeVariant({ stock: 0 })] });
+      prismaMock.product.findUnique.mockResolvedValueOnce(product);
+      prismaMock.product.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.aggregate.mockResolvedValueOnce({ _avg: { rating: null }, _count: { id: 0 } });
+
+      const result = await service.findBySlug('test-product');
+
+      expect(result.isAvailable).toBe(false);
+      expect(result.stock).toBe(0);
+    });
+
+    it('should exclude the requested slug from related products query', async () => {
+      const product = makeProduct({ slug: 'test-product', category: 'shoes' });
+      prismaMock.product.findUnique.mockResolvedValueOnce(product);
+      prismaMock.product.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.aggregate.mockResolvedValueOnce({ _avg: { rating: null }, _count: { id: 0 } });
+
+      await service.findBySlug('test-product');
+
+      expect(prismaMock.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            slug: { not: 'test-product' },
+            category: 'shoes',
+            isActive: true,
+          }),
+          take: 4,
+        }),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getReviews
+  // -------------------------------------------------------------------------
+
+  describe('getReviews', () => {
+    it('should return ReviewsListResponseDto with paginated reviews', async () => {
+      const reviews = [makeReview(), makeReview({ id: 'review-2', rating: 5 })];
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.findMany.mockResolvedValueOnce(reviews);
+      prismaMock.review.count.mockResolvedValueOnce(15);
+
+      const result = await service.getReviews('test-product', 2, 10);
+
+      expect(result.data).toHaveLength(2);
+      expect(result.total).toBe(15);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(10);
+      expect(result.totalPages).toBe(2); // ceil(15 / 10)
+    });
+
+    it('should look up product by slug with isActive:true before fetching reviews', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.count.mockResolvedValueOnce(0);
+
+      await service.getReviews('test-product', 1, 5);
+
+      expect(prismaMock.product.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { slug: 'test-product', isActive: true },
+          select: { id: true },
+        }),
+      );
+    });
+
+    it('should apply correct skip and take for pagination', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.count.mockResolvedValueOnce(0);
+
+      await service.getReviews('test-product', 3, 5);
+
+      expect(prismaMock.review.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { productId: 'product-1' },
+          skip: 10, // (3 - 1) * 5
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when slug does not match any active product', async () => {
+      prismaMock.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.getReviews('unknown-slug', 1, 10)).rejects.toThrow(
+        new NotFoundException('Product with slug "unknown-slug" not found'),
+      );
+    });
+
+    it('should return empty data array and totalPages 0 when product has no reviews', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.findMany.mockResolvedValueOnce([]);
+      prismaMock.review.count.mockResolvedValueOnce(0);
+
+      const result = await service.getReviews('test-product', 1, 10);
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('should map all review fields correctly', async () => {
+      const review = makeReview({
+        id: 'r-abc',
+        productId: 'product-1',
+        userId: 'user-42',
+        reviewerName: 'Alice',
+        rating: 5,
+        comment: 'Outstanding quality.',
+        createdAt: new Date('2025-06-15T10:00:00Z'),
+      });
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.findMany.mockResolvedValueOnce([review]);
+      prismaMock.review.count.mockResolvedValueOnce(1);
+
+      const result = await service.getReviews('test-product', 1, 10);
+
+      expect(result.data[0]).toMatchObject({
+        id: 'r-abc',
+        productId: 'product-1',
+        userId: 'user-42',
+        reviewerName: 'Alice',
+        rating: 5,
+        comment: 'Outstanding quality.',
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // createReview
+  // -------------------------------------------------------------------------
+
+  describe('createReview', () => {
+    const validBody: CreateReviewDto = {
+      reviewerName: 'Bob',
+      rating: 4,
+      comment: 'Very comfortable and durable.',
+    };
+
+    it('should create and return a ReviewDto', async () => {
+      const createdReview = makeReview({
+        id: 'new-review',
+        productId: 'product-1',
+        reviewerName: 'Bob',
+        rating: 4,
+        comment: 'Very comfortable and durable.',
+      });
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.create.mockResolvedValueOnce(createdReview);
+
+      const result = await service.createReview('product-1', validBody);
+
+      expect(result.id).toBe('new-review');
+      expect(result.productId).toBe('product-1');
+      expect(result.reviewerName).toBe('Bob');
+      expect(result.rating).toBe(4);
+      expect(result.comment).toBe('Very comfortable and durable.');
+    });
+
+    it('should verify product exists with isActive:true before creating review', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.create.mockResolvedValueOnce(makeReview());
+
+      await service.createReview('product-1', validBody);
+
+      expect(prismaMock.product.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'product-1', isActive: true },
+          select: { id: true },
+        }),
+      );
+    });
+
+    it('should pass the correct data to review.create', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce({ id: 'product-1' });
+      prismaMock.review.create.mockResolvedValueOnce(makeReview());
+
+      await service.createReview('product-1', validBody);
+
+      expect(prismaMock.review.create).toHaveBeenCalledWith({
+        data: {
+          productId: 'product-1',
+          reviewerName: 'Bob',
+          rating: 4,
+          comment: 'Very comfortable and durable.',
+        },
+      });
+    });
+
+    it('should throw NotFoundException when productId does not match any active product', async () => {
+      prismaMock.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.createReview('non-existent-id', validBody)).rejects.toThrow(
+        new NotFoundException('Product "non-existent-id" not found'),
+      );
+    });
+
+    it('should not call review.create when product lookup fails', async () => {
+      prismaMock.product.findUnique.mockResolvedValueOnce(null);
+
+      await service.createReview('bad-id', validBody).catch(() => undefined);
+
+      expect(prismaMock.review.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // findAllSlugs
+  // -------------------------------------------------------------------------
+
+  describe('findAllSlugs', () => {
+    it('should return an array of slug strings for all active products', async () => {
+      prismaMock.product.findMany.mockResolvedValueOnce([
+        { slug: 'running-shoe-v1' },
+        { slug: 'leather-bag' },
+        { slug: 'sport-hat' },
+      ]);
+
+      const result = await service.findAllSlugs();
+
+      expect(result).toEqual(['running-shoe-v1', 'leather-bag', 'sport-hat']);
+    });
+
+    it('should query only active products selecting slug only', async () => {
+      prismaMock.product.findMany.mockResolvedValueOnce([]);
+
+      await service.findAllSlugs();
+
+      expect(prismaMock.product.findMany).toHaveBeenCalledWith({
+        where: { isActive: true },
+        select: { slug: true },
+      });
+    });
+
+    it('should return an empty array when no active products exist', async () => {
+      prismaMock.product.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.findAllSlugs();
+
+      expect(result).toEqual([]);
     });
   });
 });

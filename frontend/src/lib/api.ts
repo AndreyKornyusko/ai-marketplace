@@ -12,6 +12,56 @@ export interface ProductSummaryDto {
   isAvailable: boolean;
 }
 
+export interface ProductVariantDto {
+  id: string;
+  name: string;
+  value: string;
+  priceDelta: number;
+  stock: number;
+}
+
+export interface ProductDetailDto {
+  id: string;
+  slug: string;
+  sku: string;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string | null;
+  category: string;
+  tags: string[];
+  stock: number;
+  isAvailable: boolean;
+  variants: ProductVariantDto[];
+  relatedProducts: ProductSummaryDto[];
+  averageRating: number | null;
+  reviewCount: number;
+}
+
+export interface ReviewDto {
+  id: string;
+  productId: string;
+  userId: string | null;
+  reviewerName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface ReviewsListResponse {
+  data: ReviewDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreateReviewInput {
+  rating: number;
+  comment: string;
+  reviewerName: string;
+}
+
 export interface ProductsMeta {
   total: number;
   page: number;
@@ -77,6 +127,36 @@ function isCategoryCount(value: unknown): value is CategoryCount {
     value !== null &&
     typeof (value as Record<string, unknown>)['category'] === 'string' &&
     typeof (value as Record<string, unknown>)['count'] === 'number'
+  );
+}
+
+function isProductDetailDto(value: unknown): value is ProductDetailDto {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>)['id'] === 'string' &&
+    typeof (value as Record<string, unknown>)['slug'] === 'string' &&
+    typeof (value as Record<string, unknown>)['name'] === 'string' &&
+    typeof (value as Record<string, unknown>)['price'] === 'number' &&
+    Array.isArray((value as Record<string, unknown>)['variants'])
+  );
+}
+
+function isReviewsListResponse(value: unknown): value is ReviewsListResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as Record<string, unknown>)['data']) &&
+    typeof (value as Record<string, unknown>)['total'] === 'number'
+  );
+}
+
+function isReviewDto(value: unknown): value is ReviewDto {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>)['id'] === 'string' &&
+    typeof (value as Record<string, unknown>)['rating'] === 'number'
   );
 }
 
@@ -162,4 +242,82 @@ export async function fetchFeaturedProducts(): Promise<ProductSummaryDto[]> {
     throw new Error('Unexpected response shape from /api/v1/products/featured');
   }
   return json;
+}
+
+export async function fetchProduct(slug: string): Promise<ProductDetailDto> {
+  const res = await fetch(`${API_BASE}/api/v1/products/${encodeURIComponent(slug)}`, {
+    next: { tags: [`product-${slug}`, 'products'], revalidate: 60 },
+  });
+
+  if (res.status === 404) {
+    throw new Error('NOT_FOUND');
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to fetch product: ${res.status} ${res.statusText}`);
+  }
+
+  const json: unknown = await res.json();
+  if (!isProductDetailDto(json)) {
+    throw new Error('Unexpected response shape from /api/v1/products/:slug');
+  }
+  return json;
+}
+
+export async function fetchProductReviews(
+  slug: string,
+  page = 1,
+  limit = 20,
+): Promise<ReviewsListResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/products/${encodeURIComponent(slug)}/reviews?page=${page}&limit=${limit}`,
+    { next: { tags: [`product-reviews-${slug}`], revalidate: 30 } },
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch reviews: ${res.status} ${res.statusText}`);
+  }
+
+  const json: unknown = await res.json();
+  if (!isReviewsListResponse(json)) {
+    throw new Error('Unexpected response shape from /api/v1/products/:slug/reviews');
+  }
+  return json;
+}
+
+export async function createProductReview(
+  productId: string,
+  body: CreateReviewInput,
+): Promise<ReviewDto> {
+  const res = await fetch(`${API_BASE}/api/v1/products/${encodeURIComponent(productId)}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to submit review: ${res.status} ${text}`);
+  }
+
+  const json: unknown = await res.json();
+  if (!isReviewDto(json)) {
+    throw new Error('Unexpected response shape from POST /api/v1/products/:id/reviews');
+  }
+  return json;
+}
+
+export async function fetchAllProductSlugs(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/v1/products?limit=1000`, {
+    next: { tags: ['products'], revalidate: 300 },
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const json: unknown = await res.json();
+  if (!isProductsListResponse(json)) {
+    return [];
+  }
+  return json.data.map((p) => p.slug);
 }

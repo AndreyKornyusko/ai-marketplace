@@ -1,43 +1,55 @@
+import { Expose } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { ProductSummaryDto } from './product-summary.dto';
 
 export class PriceRangeDto {
+  @Expose()
   @ApiProperty()
-  min: number;
+  min!: number;
 
+  @Expose()
   @ApiProperty()
-  max: number;
+  max!: number;
 }
 
 export class ProductsMetaFiltersDto {
+  @Expose()
   @ApiProperty({ type: [String] })
-  categories: string[];
+  categories!: string[];
 
+  @Expose()
   @ApiProperty({ type: PriceRangeDto })
-  priceRange: PriceRangeDto;
+  priceRange!: PriceRangeDto;
 }
 
 export class ProductsMetaDto {
+  @Expose()
   @ApiProperty()
-  total: number;
+  total!: number;
 
+  @Expose()
   @ApiProperty()
-  page: number;
+  page!: number;
 
+  @Expose()
   @ApiProperty()
-  limit: number;
+  limit!: number;
 
+  @Expose()
   @ApiProperty()
-  totalPages: number;
+  totalPages!: number;
 
+  @Expose()
   @ApiProperty({ type: ProductsMetaFiltersDto })
-  filters: ProductsMetaFiltersDto;
+  filters!: ProductsMetaFiltersDto;
 }
 
 export class ProductsListResponseDto {
+  @Expose()
   @ApiProperty({ type: [ProductSummaryDto] })
-  data: ProductSummaryDto[];
+  data!: ProductSummaryDto[];
 
+  @Expose()
   @ApiProperty({ type: ProductsMetaDto })
-  meta: ProductsMetaDto;
+  meta!: ProductsMetaDto;
 }
