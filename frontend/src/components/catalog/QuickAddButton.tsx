@@ -1,19 +1,28 @@
 'use client';
 
+import { useCart } from '@/contexts/CartContext';
+
 interface QuickAddButtonProps {
   productId: string;
   productName: string;
+  price: number;
+  imageUrl: string | null;
+  maxQuantity: number;
 }
 
 export default function QuickAddButton({
   productId,
   productName,
+  price,
+  imageUrl,
+  maxQuantity,
 }: QuickAddButtonProps): React.JSX.Element {
+  const { addItem } = useCart();
+
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.preventDefault();
     e.stopPropagation();
-    // Cart integration placeholder — will be wired to cart context in spec-05
-    console.log('Quick add:', productId);
+    addItem({ productId, variantId: null, name: productName, price, imageUrl, maxQuantity });
   };
 
   return (
