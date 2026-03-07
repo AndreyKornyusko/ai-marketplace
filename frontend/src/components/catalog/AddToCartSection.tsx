@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ProductDetailDto, ProductVariantDto } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
 import VariantSelector from './VariantSelector';
 
 interface AddToCartSectionProps {
@@ -9,6 +10,7 @@ interface AddToCartSectionProps {
 }
 
 export default function AddToCartSection({ product }: AddToCartSectionProps): React.JSX.Element {
+  const { addItem } = useCart();
   const [selectedVariant, setSelectedVariant] = useState<ProductVariantDto | null>(
     product.variants.length === 1 ? (product.variants[0] ?? null) : null,
   );
@@ -28,8 +30,15 @@ export default function AddToCartSection({ product }: AddToCartSectionProps): Re
       : product.price;
 
   const handleAddToCart = (): void => {
-    // Cart integration will be wired in spec-05
-    alert(`Added ${quantity}x ${product.name}${selectedVariant ? ` (${selectedVariant.value})` : ''} to cart`);
+    addItem({
+      productId: product.id,
+      variantId: selectedVariant?.id ?? null,
+      name: product.name + (selectedVariant ? ` (${selectedVariant.value})` : ''),
+      price: displayPrice,
+      imageUrl: product.imageUrl,
+      maxQuantity: maxQty,
+      quantity,
+    });
   };
 
   return (

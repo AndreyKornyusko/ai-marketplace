@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Providers } from '@/components/Providers';
+import { CartNavIcon } from '@/components/cart/CartNavIcon';
+import { AuthNavLinks } from '@/components/auth/AuthNavLinks';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -34,29 +37,33 @@ export default function RootLayout({ children }: RootLayoutProps): React.JSX.Ele
   return (
     <html lang="en">
       <body className="min-h-screen bg-white text-gray-900">
-        <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <Link href="/" className="text-xl font-bold tracking-tight text-gray-900">
-              StyleAI Shop
-            </Link>
-            <nav className="flex items-center gap-6">
-              <Link
-                href="/products"
-                className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
-              >
-                Products
+        <Providers>
+          <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
+            <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+              <Link href="/" className="text-xl font-bold tracking-tight text-gray-900">
+                StyleAI Shop
               </Link>
-            </nav>
-          </div>
-        </header>
-        <main>{children}</main>
-        <footer className="mt-16 border-t border-gray-200 bg-gray-50 py-12">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <p className="text-center text-sm text-gray-500">
-              &copy; {new Date().getFullYear()} StyleAI Shop. All rights reserved.
-            </p>
-          </div>
-        </footer>
+              <nav className="flex items-center gap-6">
+                <Link
+                  href="/products"
+                  className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
+                >
+                  Products
+                </Link>
+                <AuthNavLinks />
+                <CartNavIcon />
+              </nav>
+            </div>
+          </header>
+          <main>{children}</main>
+          <footer className="mt-16 border-t border-gray-200 bg-gray-50 py-12">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <p className="text-center text-sm text-gray-500">
+                &copy; {new Date().getFullYear()} StyleAI Shop. All rights reserved.
+              </p>
+            </div>
+          </footer>
+        </Providers>
       </body>
     </html>
   );
