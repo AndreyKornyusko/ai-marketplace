@@ -51,11 +51,16 @@ export class CustomerSupportController {
 
     this.logger.log(`Customer support [${userId ?? 'anonymous'}] conv:${conversationId}`);
 
+    const chatHistory = this.customerSupportService.getHistory(conversationId);
+
     const result = await this.customerSupportAgent.invoke({
       message: dto.message,
       conversationId,
       userId,
+      chatHistory,
     });
+
+    this.customerSupportService.appendToHistory(conversationId, dto.message, result.reply);
 
     return {
       conversationId: result.conversationId,

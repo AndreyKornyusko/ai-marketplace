@@ -41,6 +41,10 @@ export class CustomerSupportAgent {
       temperature: 0,
       maxTokens: 4096,
       apiKey: this.configService.getOrThrow<string>('ANTHROPIC_API_KEY'),
+      // @langchain/anthropic@0.3.x always sends top_p:-1 as a sentinel, but
+      // claude-sonnet-4-6 rejects both temperature+top_p being set simultaneously.
+      // invocationKwargs spreads last, so `top_p: undefined` strips it from the request.
+      invocationKwargs: { top_p: undefined },
     });
 
     const tools = buildCustomerSupportTools({
@@ -91,6 +95,21 @@ export class CustomerSupportAgent {
     return null;
   }
 
+  private extractText(output: unknown): string {
+    if (typeof output === 'string') return output;
+    // Claude tool-calling agents return content blocks: [{type:'text', text:'...'}]
+    if (Array.isArray(output)) {
+      return output
+        .filter((block): block is { type: string; text: string } => block?.type === 'text')
+        .map((block) => block.text)
+        .join('');
+    }
+    if (output && typeof output === 'object' && 'text' in output) {
+      return String((output as { text: unknown }).text);
+    }
+    return String(output ?? '');
+  }
+
   async invoke(options: SupportInvokeOptions): Promise<SupportInvokeResult> {
     const executor = this.buildExecutor(options);
     const langfuseHandler = this.buildLangfuseCallback(options);
@@ -103,7 +122,7 @@ export class CustomerSupportAgent {
 
     return {
       conversationId: options.conversationId,
-      reply: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
+      reply: this.extractText(result.output),
       intermediateSteps: Array.isArray(result.intermediateSteps)
         ? (result.intermediateSteps as AgentStep[])
         : [],

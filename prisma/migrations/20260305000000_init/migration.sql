@@ -69,8 +69,8 @@ CREATE TABLE "product_embeddings" (
 
 CREATE UNIQUE INDEX "product_embeddings_product_id_key" ON "product_embeddings"("product_id");
 
--- IVFFlat index for cosine similarity (lists = 100; tune to sqrt(row_count) before production)
-CREATE INDEX ON "product_embeddings" USING ivfflat ("embedding" vector_cosine_ops) WITH (lists = 100);
+-- HNSW index for cosine similarity — works correctly at any dataset size unlike IVFFlat
+CREATE INDEX ON "product_embeddings" USING hnsw ("embedding" vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- ─── Users ──────────────────────────────────────────────────────────────────
 CREATE TABLE "users" (

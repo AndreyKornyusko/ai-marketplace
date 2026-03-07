@@ -18,10 +18,8 @@ CREATE TABLE "policy_embeddings" (
 CREATE UNIQUE INDEX "policy_embeddings_section_topic_key" ON "policy_embeddings"("section", "topic");
 CREATE INDEX "idx_policy_embeddings_section" ON "policy_embeddings"("section");
 
--- IVFFlat index for cosine similarity (lists = 10 for small policy corpus)
-CREATE INDEX ON "policy_embeddings"
-    USING ivfflat ("embedding" vector_cosine_ops)
-    WITH (lists = 10);
+-- HNSW index for cosine similarity — works correctly at any dataset size unlike IVFFlat
+CREATE INDEX ON "policy_embeddings" USING hnsw ("embedding" vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- DOWN
 -- DROP TABLE "policy_embeddings";
