@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -395,39 +394,37 @@ const products: ProductDef[] = [
 async function main(): Promise<void> {
   console.log('Seeding database...');
 
-  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    for (const productDef of products) {
-      const { variants, ...productData } = productDef;
+  for (const productDef of products) {
+    const { variants, ...productData } = productDef;
 
-      await tx.product.upsert({
-        where: { slug: productData.slug },
-        update: { imageUrl: productData.imageUrl },
-        create: {
-          slug: productData.slug,
-          sku: productData.sku,
-          name: productData.name,
-          description: productData.description,
-          price: productData.price,
-          category: productData.category,
-          tags: productData.tags,
-          imageUrl: productData.imageUrl,
-          isActive: true,
-          variants: {
-            createMany: {
-              data: variants.map((v) => ({
-                name: v.name,
-                value: v.value,
-                stock: v.stock,
-                priceDelta: 0,
-                sku: `${productData.sku}-${v.skuSuffix}`,
-              })),
-              skipDuplicates: true,
-            },
+    await prisma.product.upsert({
+      where: { slug: productData.slug },
+      update: { imageUrl: productData.imageUrl },
+      create: {
+        slug: productData.slug,
+        sku: productData.sku,
+        name: productData.name,
+        description: productData.description,
+        price: productData.price,
+        category: productData.category,
+        tags: productData.tags,
+        imageUrl: productData.imageUrl,
+        isActive: true,
+        variants: {
+          createMany: {
+            data: variants.map((v) => ({
+              name: v.name,
+              value: v.value,
+              stock: v.stock,
+              priceDelta: 0,
+              sku: `${productData.sku}-${v.skuSuffix}`,
+            })),
+            skipDuplicates: true,
           },
         },
-      });
-    }
-  });
+      },
+    });
+  }
 
   const productCount = await prisma.product.count();
   const variantCount = await prisma.productVariant.count();
