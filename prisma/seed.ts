@@ -32,7 +32,7 @@ const products: ProductDef[] = [
     price: 89.99,
     category: "Men's Footwear / Sneakers",
     tags: ['sneakers', 'white', 'nike', 'casual', 'sport', 'lightweight'],
-    imageUrl: 'https://placehold.co/600x600?text=Nike+Air+Classic',
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '40', stock: 3, skuSuffix: '40' },
       { name: 'Size', value: '41', stock: 8, skuSuffix: '41' },
@@ -51,7 +51,7 @@ const products: ProductDef[] = [
     price: 129.99,
     category: "Men's Footwear / Sneakers",
     tags: ['sneakers', 'black', 'adidas', 'running', 'sport', 'boost'],
-    imageUrl: 'https://placehold.co/600x600?text=Adidas+Ultraboost',
+    imageUrl: 'https://images.unsplash.com/photo-1608231387042-66d1773d3028?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '40', stock: 0, skuSuffix: '40' },
       { name: 'Size', value: '41', stock: 4, skuSuffix: '41' },
@@ -70,7 +70,7 @@ const products: ProductDef[] = [
     price: 99.99,
     category: "Women's Footwear / Sneakers",
     tags: ['sneakers', 'grey', 'new balance', 'retro', 'casual', 'suede'],
-    imageUrl: 'https://placehold.co/600x600?text=NB+574+Grey',
+    imageUrl: 'https://images.unsplash.com/photo-1539185441755-769473a23570?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '36', stock: 5, skuSuffix: '36' },
       { name: 'Size', value: '37', stock: 8, skuSuffix: '37' },
@@ -89,7 +89,7 @@ const products: ProductDef[] = [
     price: 74.99,
     category: "Women's Footwear / Ankle Boots",
     tags: ['boots', 'black', 'converse', 'classic', 'canvas', 'ankle'],
-    imageUrl: 'https://placehold.co/600x600?text=Converse+Chuck+Boots',
+    imageUrl: 'https://images.unsplash.com/photo-1607522370275-f6bdf8604cda?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '36', stock: 2, skuSuffix: '36' },
       { name: 'Size', value: '37', stock: 6, skuSuffix: '37' },
@@ -107,7 +107,7 @@ const products: ProductDef[] = [
     price: 34.99,
     category: "Men's Clothing / T-Shirts",
     tags: ['t-shirt', 'white', 'nike', 'sport', 'gym', 'basic', 'dri-fit'],
-    imageUrl: 'https://placehold.co/600x600?text=Nike+Dri-FIT+Tee',
+    imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'S', stock: 15, skuSuffix: 'S' },
       { name: 'Size', value: 'M', stock: 20, skuSuffix: 'M' },
@@ -125,7 +125,7 @@ const products: ProductDef[] = [
     price: 19.99,
     category: "Men's Clothing / T-Shirts",
     tags: ['t-shirt', 'black', 'graphic', 'hm', 'casual', 'cotton'],
-    imageUrl: 'https://placehold.co/600x600?text=HM+Graphic+Tee',
+    imageUrl: 'https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'S', stock: 10, skuSuffix: 'S' },
       { name: 'Size', value: 'M', stock: 25, skuSuffix: 'M' },
@@ -142,7 +142,7 @@ const products: ProductDef[] = [
     price: 64.99,
     category: "Men's Clothing / Hoodies",
     tags: ['hoodie', 'navy', 'champion', 'fleece', 'casual', 'streetwear'],
-    imageUrl: 'https://placehold.co/600x600?text=Champion+Hoodie',
+    imageUrl: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'S', stock: 6, skuSuffix: 'S' },
       { name: 'Size', value: 'M', stock: 14, skuSuffix: 'M' },
@@ -160,7 +160,7 @@ const products: ProductDef[] = [
     price: 69.99,
     category: "Men's Clothing / Hoodies",
     tags: ['hoodie', 'grey', 'adidas', 'originals', 'logo', 'casual'],
-    imageUrl: 'https://placehold.co/600x600?text=Adidas+Hoodie',
+    imageUrl: 'https://images.unsplash.com/photo-1509942774463-acf339cf87d5?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'S', stock: 0, skuSuffix: 'S' },
       { name: 'Size', value: 'M', stock: 5, skuSuffix: 'M' },
@@ -177,7 +177,7 @@ const products: ProductDef[] = [
     price: 79.99,
     category: "Men's Clothing / Jeans",
     tags: ['jeans', 'blue', 'levis', 'denim', 'straight', 'classic'],
-    imageUrl: 'https://placehold.co/600x600?text=Levis+501',
+    imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '30x30', stock: 4, skuSuffix: '30X30' },
       { name: 'Size', value: '30x32', stock: 7, skuSuffix: '30X32' },
@@ -196,7 +196,7 @@ const products: ProductDef[] = [
     price: 59.99,
     category: "Women's Clothing / Dresses",
     tags: ['dress', 'floral', 'zara', 'midi', 'summer', 'white', 'feminine'],
-    imageUrl: 'https://placehold.co/600x600?text=Zara+Floral+Dress',
+    imageUrl: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'XS', stock: 3, skuSuffix: 'XS' },
       { name: 'Size', value: 'S', stock: 8, skuSuffix: 'S' },
@@ -214,7 +214,7 @@ const products: ProductDef[] = [
     price: 39.99,
     category: "Women's Clothing / Tops",
     tags: ['top', 'beige', 'mango', 'knit', 'ribbed', 'casual', 'minimal'],
-    imageUrl: 'https://placehold.co/600x600?text=Mango+Knit+Top',
+    imageUrl: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'XS', stock: 7, skuSuffix: 'XS' },
       { name: 'Size', value: 'S', stock: 12, skuSuffix: 'S' },
@@ -231,7 +231,7 @@ const products: ProductDef[] = [
     price: 54.99,
     category: "Women's Clothing / Leggings",
     tags: ['leggings', 'black', 'nike', 'sport', 'gym', 'yoga', 'dri-fit', 'high-waist'],
-    imageUrl: 'https://placehold.co/600x600?text=Nike+Pro+Leggings',
+    imageUrl: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'XS', stock: 5, skuSuffix: 'XS' },
       { name: 'Size', value: 'S', stock: 14, skuSuffix: 'S' },
@@ -249,7 +249,7 @@ const products: ProductDef[] = [
     price: 44.99,
     category: 'Unisex Sport / Joggers',
     tags: ['joggers', 'navy', 'puma', 'sport', 'casual', 'unisex', 'comfortable'],
-    imageUrl: 'https://placehold.co/600x600?text=Puma+Joggers',
+    imageUrl: 'https://images.unsplash.com/photo-1605518216938-7c31b7b14ad0?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'XS', stock: 4, skuSuffix: 'XS' },
       { name: 'Size', value: 'S', stock: 9, skuSuffix: 'S' },
@@ -268,7 +268,7 @@ const products: ProductDef[] = [
     price: 54.99,
     category: 'Unisex Sport / Joggers',
     tags: ['joggers', 'black', 'adidas', 'training', 'tapered', 'football', 'slim'],
-    imageUrl: 'https://placehold.co/600x600?text=Adidas+Tiro+Joggers',
+    imageUrl: 'https://images.unsplash.com/photo-1552902865-b72c031ac5ea?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'S', stock: 0, skuSuffix: 'S' },
       { name: 'Size', value: 'M', stock: 3, skuSuffix: 'M' },
@@ -286,7 +286,7 @@ const products: ProductDef[] = [
     price: 99.99,
     category: 'Unisex Sport / Windbreakers',
     tags: ['windbreaker', 'blue', 'nike', 'jacket', 'outdoor', 'packable', 'light'],
-    imageUrl: 'https://placehold.co/600x600?text=Nike+Windrunner',
+    imageUrl: 'https://images.unsplash.com/photo-1544923246-77307dd654cb?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'S', stock: 3, skuSuffix: 'S' },
       { name: 'Size', value: 'M', stock: 7, skuSuffix: 'M' },
@@ -304,7 +304,7 @@ const products: ProductDef[] = [
     price: 14.99,
     category: "Women's Clothing / Tops",
     tags: ['t-shirt', 'white', 'hm', 'basic', 'casual', 'cotton', 'women'],
-    imageUrl: 'https://placehold.co/600x600?text=HM+Basic+Tee+Women',
+    imageUrl: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'XS', stock: 12, skuSuffix: 'XS' },
       { name: 'Size', value: 'S', stock: 20, skuSuffix: 'S' },
@@ -322,7 +322,7 @@ const products: ProductDef[] = [
     price: 69.99,
     category: "Women's Clothing / Jeans",
     tags: ['jeans', 'black', 'zara', 'skinny', 'high-rise', 'stretch', 'denim'],
-    imageUrl: 'https://placehold.co/600x600?text=Zara+Skinny+Jeans',
+    imageUrl: 'https://images.unsplash.com/photo-1475178626620-a4d074967452?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '34', stock: 4, skuSuffix: '34' },
       { name: 'Size', value: '36', stock: 9, skuSuffix: '36' },
@@ -341,7 +341,7 @@ const products: ProductDef[] = [
     price: 189.99,
     category: "Men's Footwear / Boots",
     tags: ['boots', 'wheat', 'timberland', 'leather', 'waterproof', 'outdoor', 'classic'],
-    imageUrl: 'https://placehold.co/600x600?text=Timberland+6+Inch',
+    imageUrl: 'https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '40', stock: 2, skuSuffix: '40' },
       { name: 'Size', value: '41', stock: 3, skuSuffix: '41' },
@@ -361,7 +361,7 @@ const products: ProductDef[] = [
     price: 59.99,
     category: "Women's Clothing / Hoodies",
     tags: ['hoodie', 'pink', 'champion', 'crop', 'streetwear', 'fleece', 'women'],
-    imageUrl: 'https://placehold.co/600x600?text=Champion+Crop+Hoodie',
+    imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: 'XS', stock: 5, skuSuffix: 'XS' },
       { name: 'Size', value: 'S', stock: 10, skuSuffix: 'S' },
@@ -378,7 +378,7 @@ const products: ProductDef[] = [
     price: 79.99,
     category: "Men's Footwear / Sneakers",
     tags: ['sneakers', 'black', 'puma', 'suede', 'classic', 'streetwear', 'retro'],
-    imageUrl: 'https://placehold.co/600x600?text=Puma+Suede+Classic',
+    imageUrl: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&h=600&fit=crop',
     variants: [
       { name: 'Size', value: '38', stock: 3, skuSuffix: '38' },
       { name: 'Size', value: '39', stock: 5, skuSuffix: '39' },
@@ -401,7 +401,7 @@ async function main(): Promise<void> {
 
       await tx.product.upsert({
         where: { slug: productData.slug },
-        update: {},
+        update: { imageUrl: productData.imageUrl },
         create: {
           slug: productData.slug,
           sku: productData.sku,
