@@ -4,6 +4,45 @@ import { useState } from 'react';
 import type { UserDto, UserAddressDto } from '@/lib/auth-api';
 import type { CustomerInfo } from './CheckoutFlow';
 
+interface FieldProps {
+  label: string;
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  errors: Partial<Record<string, string>>;
+}
+
+function Field({
+  label,
+  id,
+  value,
+  onChange,
+  type = 'text',
+  required = true,
+  errors,
+}: FieldProps): React.JSX.Element {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        required={required}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-900 ${
+          errors[id] ? 'border-red-400 focus:border-red-400' : 'border-gray-300 focus:border-gray-900'
+        }`}
+      />
+      {errors[id] && <p className="mt-1 text-xs text-red-600">{errors[id]}</p>}
+    </div>
+  );
+}
+
 interface CustomerInfoStepProps {
   user: UserDto | null;
   savedAddresses: UserAddressDto[];
@@ -71,47 +110,14 @@ export function CustomerInfoStep({
     onComplete({ fullName, email, phone, street, city, state, zip, country, saveAddress });
   };
 
-  const Field = ({
-    label,
-    id,
-    value,
-    onChange,
-    type = 'text',
-    required = true,
-  }: {
-    label: string;
-    id: string;
-    value: string;
-    onChange: (v: string) => void;
-    type?: string;
-    required?: boolean;
-  }): React.JSX.Element => (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-900 ${
-          errors[id] ? 'border-red-400 focus:border-red-400' : 'border-gray-300 focus:border-gray-900'
-        }`}
-      />
-      {errors[id] && <p className="mt-1 text-xs text-red-600">{errors[id]}</p>}
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <section>
         <h2 className="mb-4 text-base font-semibold text-gray-900">Contact Information</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Full Name" id="fullName" value={fullName} onChange={setFullName} />
-          <Field label="Email" id="email" type="email" value={email} onChange={setEmail} />
-          <Field label="Phone" id="phone" type="tel" value={phone} onChange={setPhone} />
+          <Field label="Full Name" id="fullName" value={fullName} onChange={setFullName} errors={errors} />
+          <Field label="Email" id="email" type="email" value={email} onChange={setEmail} errors={errors} />
+          <Field label="Phone" id="phone" type="tel" value={phone} onChange={setPhone} errors={errors} />
         </div>
       </section>
 
@@ -142,12 +148,12 @@ export function CustomerInfoStep({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <Field label="Street Address" id="street" value={street} onChange={setStreet} />
+            <Field label="Street Address" id="street" value={street} onChange={setStreet} errors={errors} />
           </div>
-          <Field label="City" id="city" value={city} onChange={setCity} />
-          <Field label="State / Province" id="state" value={state} onChange={setState} />
-          <Field label="ZIP / Postal Code" id="zip" value={zip} onChange={setZip} />
-          <Field label="Country" id="country" value={country} onChange={setCountry} />
+          <Field label="City" id="city" value={city} onChange={setCity} errors={errors} />
+          <Field label="State / Province" id="state" value={state} onChange={setState} errors={errors} />
+          <Field label="ZIP / Postal Code" id="zip" value={zip} onChange={setZip} errors={errors} />
+          <Field label="Country" id="country" value={country} onChange={setCountry} errors={errors} />
         </div>
 
         {user !== null && selectedAddressId === 'new' && (
