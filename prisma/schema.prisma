@@ -219,6 +219,23 @@ model Review {
   @@map("reviews")
 }
 
+// ─── AI / Embedding Domain ──────────────────────────────────────────────────
+
+model PolicyEmbedding {
+  id        String   @id @default(uuid()) @db.Uuid
+  section   String   @db.VarChar(100) // shipping | returns | faq
+  topic     String   @db.VarChar(255)
+  content   String
+  // vector(1024) — voyage-3 dimensions; IVFFlat index created via raw migration
+  embedding Unsupported("vector(1024)")?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([section, topic], map: "policy_embeddings_section_topic_key")
+  @@index([section], map: "idx_policy_embeddings_section")
+  @@map("policy_embeddings")
+}
+
 // ─── Support Domain ────────────────────────────────────────────────────────
 
 enum TicketStatus {
