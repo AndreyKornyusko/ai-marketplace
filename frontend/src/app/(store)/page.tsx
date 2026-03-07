@@ -67,6 +67,22 @@ export default async function HomePage(): Promise<React.JSX.Element> {
           </div>
         ))}
       </section>
+
+      {/* Support CTA */}
+      <section className="mt-12 rounded-xl bg-blue-50 border border-blue-100 px-8 py-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Need help?</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Our AI support assistant can answer questions about products, orders, shipping, and returns.
+          </p>
+        </div>
+        <Link
+          href="/support"
+          className="shrink-0 inline-flex items-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+        >
+          Chat with Support
+        </Link>
+      </section>
     </div>
   );
 }

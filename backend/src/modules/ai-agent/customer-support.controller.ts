@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
+import type { StreamEvent } from '@langchain/core/tracers/log_stream';
 import { CustomerSupportQueryDto } from './dto/customer-support-query.dto';
 import { CustomerSupportResponseDto } from './dto/customer-support-response.dto';
 import { CustomerSupportService } from './customer-support.service';
@@ -89,7 +90,7 @@ export class CustomerSupportController {
         userId,
       });
 
-      for await (const event of stream) {
+      for await (const event of stream as AsyncIterable<StreamEvent>) {
         if (event.event === 'on_chat_model_stream') {
           const content = event.data?.chunk?.content;
           if (content) {

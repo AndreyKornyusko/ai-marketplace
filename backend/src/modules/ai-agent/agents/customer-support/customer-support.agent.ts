@@ -4,6 +4,7 @@ import { AgentExecutor, AgentStep, createToolCallingAgent } from 'langchain/agen
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { ConfigService } from '@nestjs/config';
 import { BaseMessage } from '@langchain/core/messages';
+import type { StreamEvent } from '@langchain/core/tracers/log_stream';
 import { VectorStoreService } from '../../services/vector-store.service';
 import { GroundingGuardService } from '../../services/grounding-guard.service';
 import { CustomerSupportService } from '../../customer-support.service';
@@ -109,7 +110,7 @@ export class CustomerSupportAgent {
     };
   }
 
-  getStreamEvents(options: SupportInvokeOptions): ReturnType<AgentExecutor['streamEvents']> {
+  getStreamEvents(options: SupportInvokeOptions): AsyncIterable<StreamEvent> {
     const executor = this.buildExecutor(options);
     const langfuseHandler = this.buildLangfuseCallback(options);
     const callbacks = [langfuseHandler].filter((cb): cb is object => cb !== null);
@@ -117,6 +118,6 @@ export class CustomerSupportAgent {
     return executor.streamEvents(
       { input: options.message, chat_history: options.chatHistory ?? [] },
       { version: 'v2', callbacks },
-    );
+    ) as AsyncIterable<StreamEvent>;
   }
 }

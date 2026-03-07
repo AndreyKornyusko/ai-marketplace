@@ -50,6 +50,12 @@ export default function RootLayout({ children }: RootLayoutProps): React.JSX.Ele
                 >
                   Products
                 </Link>
+                <Link
+                  href="/support"
+                  className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
+                >
+                  Support
+                </Link>
                 <AuthNavLinks />
                 <CartNavIcon />
               </nav>
