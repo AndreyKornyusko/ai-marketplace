@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import type React from 'react';
 
 interface Message {
@@ -15,6 +16,11 @@ interface SupportMessageProps {
 
 export function SupportMessage({ message }: SupportMessageProps): React.JSX.Element {
   const isUser = message.role === 'user';
+  const [timeLabel, setTimeLabel] = useState('');
+
+  useEffect(() => {
+    setTimeLabel(message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  }, [message.timestamp]);
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -27,7 +33,7 @@ export function SupportMessage({ message }: SupportMessageProps): React.JSX.Elem
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
         <p className={`text-xs mt-1 ${isUser ? 'text-blue-100' : 'text-gray-400'}`}>
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {timeLabel}
         </p>
       </div>
     </div>
