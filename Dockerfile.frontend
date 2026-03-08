@@ -6,7 +6,11 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 
 COPY frontend/ ./
-RUN mkdir -p public && npm run build
+RUN npm run build
+
+# ── Stage 1b: Ensure public dir always exists ─────────────────────────────────
+FROM builder AS public-provider
+RUN mkdir -p /app/public
 
 # ── Stage 2: Run ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
@@ -18,7 +22,7 @@ ENV PORT=8000
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
+COPY --from=public-provider /app/public ./public
 
 EXPOSE 8000
 CMD ["sh", "-c", "node_modules/.bin/next start -p ${PORT}"]
