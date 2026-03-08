@@ -1,5 +1,5 @@
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import { ValidationPipe, ClassSerializerInterceptor, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -43,6 +43,7 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env['PORT'] ?? 8000);
   await app.listen(port, '0.0.0.0');
+  Logger.log(`Application listening on 0.0.0.0:${port}`, 'Bootstrap');
 }
 
 void bootstrap();
