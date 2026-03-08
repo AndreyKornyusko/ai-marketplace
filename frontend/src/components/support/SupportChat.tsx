@@ -104,8 +104,9 @@ export function SupportChat(): React.JSX.Element {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      const apiBase = process.env['NEXT_PUBLIC_API_URL'] ?? '';
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/ai/customer-support`,
+        `${apiBase}/api/v1/ai/customer-support`,
         {
           method: 'POST',
           headers,
