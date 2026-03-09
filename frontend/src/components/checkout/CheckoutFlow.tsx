@@ -129,10 +129,10 @@ export function CheckoutFlow(): React.JSX.Element {
             >
               {step > s ? '✓' : s}
             </div>
-            <span className={`text-sm ${step === s ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+            <span className={`hidden text-sm sm:inline ${step === s ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
               {STEP_LABELS[s]}
             </span>
-            {s < 3 && <span className="mx-2 text-gray-300">›</span>}
+            {s < 3 && <span className="mx-1 text-gray-300 sm:mx-2">›</span>}
           </div>
         ))}
       </nav>

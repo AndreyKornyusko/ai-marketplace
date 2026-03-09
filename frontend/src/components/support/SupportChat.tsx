@@ -152,7 +152,7 @@ export function SupportChat(): React.JSX.Element {
   };
 
   return (
-    <div className="flex flex-col h-[600px] border rounded-xl shadow-sm bg-white">
+    <div className="flex flex-col h-[calc(100dvh-14rem)] sm:h-[600px] border rounded-xl shadow-sm bg-white">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-gray-50 rounded-t-xl">
         <div className="flex items-center gap-2">

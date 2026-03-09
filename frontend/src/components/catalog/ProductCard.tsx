@@ -48,7 +48,7 @@ export default function ProductCard({
 
         {/* Quick add button — visible on hover, isolated client boundary */}
         {product.isAvailable && (
-          <div className="absolute bottom-0 left-0 right-0 translate-y-full transition-transform duration-200 group-hover:translate-y-0">
+          <div className="absolute bottom-0 left-0 right-0 translate-y-0 transition-transform duration-200 sm:translate-y-full sm:group-hover:translate-y-0">
             <QuickAddButton
               productId={product.id}
               productName={product.name}
