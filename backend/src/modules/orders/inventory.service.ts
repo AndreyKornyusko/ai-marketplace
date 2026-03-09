@@ -1,5 +1,7 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ProductSummaryDto } from '../products/dto/product-summary.dto';
 
 export interface StockCheckItem {
   productId: string;
@@ -16,6 +18,8 @@ interface StockResult {
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new Logger(InventoryService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async checkBatch(items: StockCheckItem[]): Promise<void> {
@@ -55,6 +59,14 @@ export class InventoryService {
     }
 
     if (failed.length > 0) {
+      failed.forEach((f) => {
+        this.logger.error('Stock reservation failed', {
+          productId: f.productId,
+          orderId: null,
+          requestedQty: f.requested,
+          availableQty: f.available,
+        });
+      });
       throw new ConflictException({ message: 'Insufficient stock', failed });
     }
   }
@@ -72,6 +84,38 @@ export class InventoryService {
         quantity: item.quantity,
         expiresAt,
       })),
+    });
+  }
+
+  async getLowStockProducts(threshold: number): Promise<ProductSummaryDto[]> {
+    // Fetch all active products with variants; filter in-memory to avoid raw SQL
+    const products = await this.prisma.product.findMany({
+      where: { isActive: true },
+      include: { variants: true },
+    });
+
+    const lowStock = products.filter((p) => {
+      const stock = p.variants.reduce((sum, v) => sum + v.stock, 0);
+      return stock <= threshold;
+    });
+
+    return lowStock.map((p) => {
+      const stock = p.variants.reduce((sum, v) => sum + v.stock, 0);
+      return plainToInstance(
+        ProductSummaryDto,
+        {
+          id: p.id,
+          slug: p.slug,
+          name: p.name,
+          price: Number(p.price),
+          imageUrl: p.imageUrl ?? null,
+          category: p.category,
+          tags: p.tags,
+          stock,
+          isAvailable: p.isActive && stock > 0,
+        },
+        { excludeExtraneousValues: true },
+      );
     });
   }
 }

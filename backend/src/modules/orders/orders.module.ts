@@ -4,10 +4,11 @@ import { AuthModule } from '../auth/auth.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { InventoryService } from './inventory.service';
+import { InventoryController } from './inventory.controller';
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [OrdersController],
+  controllers: [OrdersController, InventoryController],
   providers: [OrdersService, InventoryService],
   exports: [InventoryService],
 })

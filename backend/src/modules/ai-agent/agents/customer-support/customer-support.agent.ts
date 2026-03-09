@@ -8,6 +8,7 @@ import type { StreamEvent } from '@langchain/core/tracers/log_stream';
 import { VectorStoreService } from '../../services/vector-store.service';
 import { GroundingGuardService } from '../../services/grounding-guard.service';
 import { CustomerSupportService } from '../../customer-support.service';
+import { LangfuseService } from '../../langfuse.service';
 import { buildCustomerSupportTools } from './customer-support.tools';
 import { CUSTOMER_SUPPORT_SYSTEM_PROMPT } from './customer-support.prompt';
 
@@ -33,6 +34,7 @@ export class CustomerSupportAgent {
     private readonly groundingGuard: GroundingGuardService,
     private readonly supportService: CustomerSupportService,
     private readonly configService: ConfigService,
+    private readonly langfuse: LangfuseService,
   ) {}
 
   private buildExecutor(options: SupportInvokeOptions): AgentExecutor {
@@ -72,29 +74,6 @@ export class CustomerSupportAgent {
     });
   }
 
-  // Langfuse tracing — install langfuse-langchain to enable AC 8
-  private buildLangfuseCallback(_options: SupportInvokeOptions): object | null {
-    const secretKey = this.configService.get<string>('LANGFUSE_SECRET_KEY');
-    if (!secretKey) {
-      this.logger.warn('LANGFUSE_SECRET_KEY not set — Langfuse tracing disabled');
-      return null;
-    }
-    // TODO: install langfuse-langchain, then replace this stub with:
-    // import { CallbackHandler } from 'langfuse-langchain';
-    // const userId = _options.userId ?? `anonymous_${_options.conversationId}`;
-    // return new CallbackHandler({
-    //   publicKey: this.configService.getOrThrow<string>('LANGFUSE_PUBLIC_KEY'),
-    //   secretKey,
-    //   baseUrl: this.configService.get<string>('LANGFUSE_HOST') ?? 'https://cloud.langfuse.com',
-    //   userId,
-    //   sessionId: _options.conversationId,
-    //   tags: ['customer-support', 'agent', 'rag'],
-    //   flushAt: 1,
-    // });
-    this.logger.warn('langfuse-langchain not installed — add it to package.json to enable tracing');
-    return null;
-  }
-
   private extractText(output: unknown): string {
     if (typeof output === 'string') return output;
     // Claude tool-calling agents return content blocks: [{type:'text', text:'...'}]
@@ -110,33 +89,101 @@ export class CustomerSupportAgent {
     return String(output ?? '');
   }
 
-  async invoke(options: SupportInvokeOptions): Promise<SupportInvokeResult> {
-    const executor = this.buildExecutor(options);
-    const langfuseHandler = this.buildLangfuseCallback(options);
-    const callbacks = [langfuseHandler].filter((cb): cb is object => cb !== null);
+  private countGroundingFailures(steps: AgentStep[]): number {
+    let count = 0;
+    for (const step of steps) {
+      const observation = step.observation;
+      if (typeof observation === 'string' && observation.toLowerCase().includes('grounding')) {
+        count++;
+      }
+      const toolInput = step.action?.toolInput;
+      if (
+        toolInput &&
+        typeof toolInput === 'object' &&
+        'error' in toolInput &&
+        String((toolInput as Record<string, unknown>).error)
+          .toLowerCase()
+          .includes('grounding')
+      ) {
+        count++;
+      }
+    }
+    return count;
+  }
 
-    const result = await executor.invoke(
-      { input: options.message, chat_history: options.chatHistory ?? [] },
-      { callbacks },
+  async invoke(options: SupportInvokeOptions): Promise<SupportInvokeResult> {
+    const userId = options.userId ?? `anonymous_${options.conversationId}`;
+    const trace = this.langfuse.createTrace({
+      name: 'customer-support-agent',
+      userId,
+      sessionId: options.conversationId,
+      metadata: { messageCount: options.chatHistory?.length ?? 0 },
+      tags: ['customer-support', 'agent', 'rag'],
+    });
+
+    const executor = this.buildExecutor(options);
+
+    const span = trace.span({ name: 'agent-execution', input: { message: options.message }, startTime: new Date() });
+
+    let result: Awaited<ReturnType<typeof executor.invoke>>;
+    try {
+      result = await executor.invoke(
+        { input: options.message, chat_history: options.chatHistory ?? [] },
+      );
+    } catch (err) {
+      span.end({ output: { error: String(err) } });
+      throw err;
+    }
+
+    const intermediateSteps = Array.isArray(result.intermediateSteps)
+      ? (result.intermediateSteps as AgentStep[])
+      : [];
+
+    const groundingFailures = this.countGroundingFailures(intermediateSteps);
+    if (groundingFailures > 0) {
+      trace.event({
+        name: 'grounding_failure',
+        input: { count: groundingFailures },
+      });
+      this.logger.warn('AI agent grounding check failed', {
+        agentType: 'CustomerSupportAgent',
+        userId,
+        count: groundingFailures,
+      });
+    }
+
+    const reply = this.extractText(result.output);
+    span.end({ output: { reply } });
+
+    // Detect escalation by checking if escalation ticket was created (tool name in steps)
+    const wasEscalated = intermediateSteps.some(
+      (s) => s.action?.tool === 'escalate_to_human_support',
     );
+
+    if (wasEscalated) {
+      this.logger.log('AI agent escalation triggered', {
+        agentType: 'CustomerSupportAgent',
+        userId,
+        reason: 'escalate_to_human_support tool called',
+      });
+    }
+
+    trace.score({ name: 'escalated', value: wasEscalated ? 1 : 0 });
+    trace.score({ name: 'grounding_failures', value: groundingFailures });
 
     return {
       conversationId: options.conversationId,
-      reply: this.extractText(result.output),
-      intermediateSteps: Array.isArray(result.intermediateSteps)
-        ? (result.intermediateSteps as AgentStep[])
-        : [],
+      reply,
+      intermediateSteps,
     };
   }
 
   getStreamEvents(options: SupportInvokeOptions): AsyncIterable<StreamEvent> {
     const executor = this.buildExecutor(options);
-    const langfuseHandler = this.buildLangfuseCallback(options);
-    const callbacks = [langfuseHandler].filter((cb): cb is object => cb !== null);
 
     return executor.streamEvents(
       { input: options.message, chat_history: options.chatHistory ?? [] },
-      { version: 'v2', callbacks },
+      { version: 'v2' },
     ) as AsyncIterable<StreamEvent>;
   }
 }

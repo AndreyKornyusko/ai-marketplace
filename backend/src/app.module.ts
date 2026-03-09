@@ -10,6 +10,7 @@ import { UsersModule } from './modules/users/users.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     OrdersModule,
     AiAgentModule,
     WebhooksModule,
+    HealthModule,
   ],
   providers: [
     {

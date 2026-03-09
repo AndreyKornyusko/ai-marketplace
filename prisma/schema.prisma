@@ -30,11 +30,12 @@ model Product {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  variants     ProductVariant[]
-  embedding    ProductEmbedding?
-  orderItems   OrderItem[]
-  reservations InventoryReservation[]
-  reviews      Review[]
+  variants      ProductVariant[]
+  embedding     ProductEmbedding?
+  orderItems    OrderItem[]
+  reservations  InventoryReservation[]
+  reviews       Review[]
+  lowStockAlert LowStockAlert?
 
   @@index([category], map: "idx_products_category")
   @@index([isActive], map: "idx_products_is_active")
@@ -262,4 +263,14 @@ model SupportTicket {
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
   @@map("support_tickets")
+}
+
+// ─── Monitoring Domain ─────────────────────────────────────────────────────
+
+model LowStockAlert {
+  productId String   @id @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id])
+  alertedAt DateTime @default(now()) @map("alerted_at")
+
+  @@map("low_stock_alerts")
 }

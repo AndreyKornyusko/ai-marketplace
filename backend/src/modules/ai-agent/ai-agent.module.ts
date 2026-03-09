@@ -7,6 +7,7 @@ import { EmbeddingListener } from './listeners/embedding.listener';
 import { CustomerSupportService } from './customer-support.service';
 import { CustomerSupportController } from './customer-support.controller';
 import { CustomerSupportAgent } from './agents/customer-support/customer-support.agent';
+import { LangfuseService } from './langfuse.service';
 
 @Module({
   imports: [PrismaModule],
@@ -18,6 +19,7 @@ import { CustomerSupportAgent } from './agents/customer-support/customer-support
     EmbeddingListener,
     CustomerSupportService,
     CustomerSupportAgent,
+    LangfuseService,
   ],
   exports: [
     EmbeddingService,
@@ -25,6 +27,7 @@ import { CustomerSupportAgent } from './agents/customer-support/customer-support
     GroundingGuardService,
     CustomerSupportService,
     CustomerSupportAgent,
+    LangfuseService,
   ],
 })
 export class AiAgentModule {}
