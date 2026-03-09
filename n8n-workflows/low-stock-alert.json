@@ -1,0 +1,222 @@
+{
+  "name": "low-stock-alert",
+  "nodes": [
+    {
+      "id": "schedule-every-15-min",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-low-stock",
+      "name": "GET Low Stock Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.NESTJS_BASE_URL }}/api/v1/inventory/low-stock?threshold=5",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.N8N_INTERNAL_API_KEY }}" }
+          ]
+        },
+        "options": { "response": { "response": { "neverError": false } } }
+      }
+    },
+    {
+      "id": "check-has-low-stock",
+      "name": "Has Low Stock Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [710, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "format-alert-message",
+      "name": "Format Alert Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 200],
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst productList = items.map(p => `- ${p.name}: ${p.stock} units (threshold: ${p.threshold})`).join('\\n');\nconst productIds = items.map(p => p.productId);\nreturn [{ json: { productList, productIds, count: items.length } }];"
+      }
+    },
+    {
+      "id": "send-low-stock-alert-email",
+      "name": "Send Low Stock Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1200, 200],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL_TO }}",
+        "subject": "[StyleAI] Low Stock Alert — {{ $json.count }} product(s) need restocking",
+        "text": "The following products are running low on stock:\n\n{{ $json.productList }}\n\nPlease restock soon to avoid stockouts.\n\nStyleAI Inventory Monitor"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "sign-low-stock-ack-payload",
+      "name": "Sign Low Stock Ack Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 200],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst payload = {\n  productIds: $json.productIds,\n  alertedAt: new Date().toISOString()\n};\nconst body = JSON.stringify(payload);\nconst signature = 'sha256=' + crypto.createHmac('sha256', $env.WEBHOOK_SECRET).update(body).digest('hex');\nreturn [{ json: { ...payload, _signature: signature, _body: body } }];"
+      }
+    },
+    {
+      "id": "post-low-stock-acknowledged",
+      "name": "POST low-stock-acknowledged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1680, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NESTJS_BASE_URL }}/api/v1/webhooks/low-stock-acknowledged",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Hub-Signature-256", "value": "={{ $json._signature }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json._body }}",
+        "options": { "response": { "response": { "neverError": false } } }
+      }
+    },
+    {
+      "id": "check-ack-response",
+      "name": "Check Ack Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1920, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 400,
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "alert-admin-ack-error",
+      "name": "Alert Admin — Ack Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [2160, 200],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL_TO }}",
+        "subject": "[StyleAI] Low stock acknowledged webhook error",
+        "text": "Low-stock acknowledgement call to NestJS failed.\n\nResponse: {{ JSON.stringify($json) }}"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "alert-admin-get-error",
+      "name": "Alert Admin — GET Low Stock Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [710, 450],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL_TO }}",
+        "subject": "[StyleAI] Low stock monitor error — cannot reach API",
+        "text": "The low stock monitor could not reach the NestJS API.\n\nResponse: {{ JSON.stringify($json) }}"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [{ "node": "GET Low Stock Products", "type": "main", "index": 0 }]
+      ]
+    },
+    "GET Low Stock Products": {
+      "main": [
+        [{ "node": "Has Low Stock Items?", "type": "main", "index": 0 }]
+      ],
+      "error": [
+        [{ "node": "Alert Admin — GET Low Stock Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Low Stock Items?": {
+      "main": [
+        [{ "node": "Format Alert Message", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Format Alert Message": {
+      "main": [
+        [{ "node": "Send Low Stock Alert Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Low Stock Alert Email": {
+      "main": [
+        [{ "node": "Sign Low Stock Ack Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sign Low Stock Ack Payload": {
+      "main": [
+        [{ "node": "POST low-stock-acknowledged", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST low-stock-acknowledged": {
+      "main": [
+        [{ "node": "Check Ack Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Ack Response": {
+      "main": [
+        [{ "node": "Alert Admin — Ack Error", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "styleai-shop" }]
+}

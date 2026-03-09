@@ -1,0 +1,194 @@
+{
+  "name": "order-status-updates",
+  "nodes": [
+    {
+      "id": "order-status-webhook-trigger",
+      "name": "Order Status Change Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-status",
+        "responseMode": "onReceived",
+        "responseData": "{\"received\": true}"
+      }
+    },
+    {
+      "id": "route-by-status",
+      "name": "Route by New Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [480, 300],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.newStatus }}",
+                    "rightValue": "CONFIRMED",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "CONFIRMED"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.newStatus }}",
+                    "rightValue": "SHIPPED",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "SHIPPED"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.newStatus }}",
+                    "rightValue": "DELIVERED",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "DELIVERED"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.newStatus }}",
+                    "rightValue": "CANCELLED",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "CANCELLED"
+            }
+          ]
+        },
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "email-confirmed",
+      "name": "Email — Order Confirmed",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [720, 100],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Order Confirmed — StyleAI Shop",
+        "text": "Hello,\n\nYour order #{{ $json.orderId }} has been confirmed and is being prepared.\n\nThank you for shopping with StyleAI Shop!"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "email-shipped",
+      "name": "Email — Order Shipped",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [720, 220],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Your Order Has Shipped — StyleAI Shop",
+        "text": "Hello,\n\nGreat news! Your order #{{ $json.orderId }} has shipped.\n\nTracking number: {{ $json.trackingNumber ?? 'Will be updated shortly' }}\n\nThank you for shopping with StyleAI Shop!"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "email-delivered",
+      "name": "Email — Order Delivered",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [720, 340],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Order Delivered — We'd Love Your Review! — StyleAI Shop",
+        "text": "Hello,\n\nYour order #{{ $json.orderId }} has been delivered!\n\nWe hope you love your purchase. Would you mind leaving us a review?\n\nThank you for shopping with StyleAI Shop!"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "email-cancelled",
+      "name": "Email — Order Cancelled",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [720, 460],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Order Cancelled — StyleAI Shop",
+        "text": "Hello,\n\nYour order #{{ $json.orderId }} has been cancelled.\n\nIf you have any questions, please contact our support team.\n\nStyleAI Shop Team"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "alert-admin-unknown-status",
+      "name": "Alert Admin — Unknown Status",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [720, 580],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL_TO }}",
+        "subject": "[StyleAI] Unknown order status update",
+        "text": "An order status update was received with an unexpected status.\n\nOrder ID: {{ $json.orderId }}\nNew Status: {{ $json.newStatus }}\nOld Status: {{ $json.oldStatus }}"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    }
+  ],
+  "connections": {
+    "Order Status Change Webhook": {
+      "main": [
+        [{ "node": "Route by New Status", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by New Status": {
+      "main": [
+        [{ "node": "Email — Order Confirmed", "type": "main", "index": 0 }],
+        [{ "node": "Email — Order Shipped", "type": "main", "index": 0 }],
+        [{ "node": "Email — Order Delivered", "type": "main", "index": 0 }],
+        [{ "node": "Email — Order Cancelled", "type": "main", "index": 0 }],
+        [{ "node": "Alert Admin — Unknown Status", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "styleai-shop" }]
+}

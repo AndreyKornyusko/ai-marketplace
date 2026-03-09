@@ -1,0 +1,130 @@
+{
+  "name": "support-escalation",
+  "nodes": [
+    {
+      "id": "escalation-webhook-trigger",
+      "name": "Escalation Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-escalation",
+        "responseMode": "onReceived",
+        "responseData": "{\"received\": true}"
+      }
+    },
+    {
+      "id": "sign-support-ticket-payload",
+      "name": "Sign Support Ticket Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst input = $input.first().json;\nconst payload = {\n  ticketId: input.ticketId,\n  customerId: input.customerId ?? null,\n  conversationId: input.conversationId,\n  agentType: input.agentType,\n  reason: input.reason,\n  summary: input.summary\n};\nconst body = JSON.stringify(payload);\nconst signature = 'sha256=' + crypto.createHmac('sha256', $env.WEBHOOK_SECRET).update(body).digest('hex');\nreturn [{ json: { ...payload, _signature: signature, _body: body } }];"
+      }
+    },
+    {
+      "id": "post-support-ticket-created",
+      "name": "POST support-ticket-created",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NESTJS_BASE_URL }}/api/v1/webhooks/support-ticket-created",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Hub-Signature-256", "value": "={{ $json._signature }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json._body }}",
+        "options": { "response": { "response": { "neverError": false } } }
+      }
+    },
+    {
+      "id": "check-ticket-response",
+      "name": "Check Ticket Creation Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 400,
+              "operator": { "type": "number", "operation": "lt" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "notify-human-agent",
+      "name": "Notify Human Agent",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1200, 200],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.SUPPORT_EMAIL_TO }}",
+        "subject": "[StyleAI Support] New Escalation — {{ $('Escalation Event Webhook').first().json.agentType }}",
+        "text": "A customer interaction has been escalated to human support.\n\nTicket ID: {{ $('Escalation Event Webhook').first().json.ticketId }}\nAgent Type: {{ $('Escalation Event Webhook').first().json.agentType }}\nConversation ID: {{ $('Escalation Event Webhook').first().json.conversationId }}\nCustomer ID: {{ $('Escalation Event Webhook').first().json.customerId ?? 'Guest' }}\n\nReason:\n{{ $('Escalation Event Webhook').first().json.reason }}\n\nSummary:\n{{ $('Escalation Event Webhook').first().json.summary }}\n\nPlease handle this ticket promptly.\n\nStyleAI Support System"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "alert-admin-escalation-error",
+      "name": "Alert Admin — Escalation Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1200, 400],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL_TO }}",
+        "subject": "[StyleAI] Support escalation webhook error",
+        "text": "Support ticket creation in NestJS failed.\n\nTicket ID: {{ $('Escalation Event Webhook').first().json.ticketId }}\nResponse: {{ JSON.stringify($json) }}\n\nManual intervention required."
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    }
+  ],
+  "connections": {
+    "Escalation Event Webhook": {
+      "main": [
+        [{ "node": "Sign Support Ticket Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sign Support Ticket Payload": {
+      "main": [
+        [{ "node": "POST support-ticket-created", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST support-ticket-created": {
+      "main": [
+        [{ "node": "Check Ticket Creation Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Ticket Creation Response": {
+      "main": [
+        [{ "node": "Notify Human Agent", "type": "main", "index": 0 }],
+        [{ "node": "Alert Admin — Escalation Error", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "styleai-shop" }]
+}

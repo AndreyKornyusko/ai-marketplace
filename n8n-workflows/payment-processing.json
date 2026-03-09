@@ -1,0 +1,248 @@
+{
+  "name": "payment-processing",
+  "nodes": [
+    {
+      "id": "stripe-webhook-trigger",
+      "name": "Stripe Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe-payment",
+        "responseMode": "onReceived",
+        "responseData": "{\"received\": true}"
+      }
+    },
+    {
+      "id": "verify-stripe-signature",
+      "name": "Verify Stripe Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "parameters": {
+        "jsCode": "const stripe = require('stripe');\nconst rawBody = $input.first().json.rawBody;\nconst signature = $input.first().json.headers['stripe-signature'];\nconst webhookSecret = $env.STRIPE_WEBHOOK_SECRET;\ntry {\n  const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);\n  return [{ json: event }];\n} catch (err) {\n  throw new Error(`Stripe signature verification failed: ${err.message}`);\n}"
+      }
+    },
+    {
+      "id": "route-by-event-type",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [710, 300],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "payment_intent.succeeded",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "succeeded"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "payment_intent.payment_failed",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "failed"
+            }
+          ]
+        },
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "sign-succeeded-payload",
+      "name": "Sign Succeeded Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 200],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst payload = {\n  orderId: $json.data.object.metadata.orderId,\n  status: 'succeeded',\n  transactionId: $json.data.object.id,\n  amount: $json.data.object.amount_received / 100\n};\nconst body = JSON.stringify(payload);\nconst signature = 'sha256=' + crypto.createHmac('sha256', $env.WEBHOOK_SECRET).update(body).digest('hex');\nreturn [{ json: { ...payload, _signature: signature, _body: body } }];"
+      }
+    },
+    {
+      "id": "sign-failed-payload",
+      "name": "Sign Failed Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 400],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst payload = {\n  orderId: $json.data.object.metadata.orderId,\n  status: 'failed',\n  transactionId: $json.data.object.id,\n  amount: $json.data.object.amount / 100\n};\nconst body = JSON.stringify(payload);\nconst signature = 'sha256=' + crypto.createHmac('sha256', $env.WEBHOOK_SECRET).update(body).digest('hex');\nreturn [{ json: { ...payload, _signature: signature, _body: body } }];"
+      }
+    },
+    {
+      "id": "post-payment-result-succeeded",
+      "name": "POST payment-result (succeeded)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1200, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NESTJS_BASE_URL }}/api/v1/webhooks/payment-result",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Hub-Signature-256", "value": "={{ $json._signature }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json._body }}",
+        "options": { "response": { "response": { "neverError": false } } }
+      }
+    },
+    {
+      "id": "post-payment-result-failed",
+      "name": "POST payment-result (failed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1200, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NESTJS_BASE_URL }}/api/v1/webhooks/payment-result",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Hub-Signature-256", "value": "={{ $json._signature }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json._body }}",
+        "options": { "response": { "response": { "neverError": false } } }
+      }
+    },
+    {
+      "id": "check-succeeded-response",
+      "name": "Check Succeeded Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 400,
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "check-failed-response",
+      "name": "Check Failed Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 400,
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "alert-admin-payment-error",
+      "name": "Alert Admin — Payment Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1680, 300],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL_TO }}",
+        "subject": "[StyleAI] Payment webhook error",
+        "text": "Payment webhook call to NestJS failed.\n\nResponse: {{ JSON.stringify($json) }}"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    }
+  ],
+  "connections": {
+    "Stripe Webhook": {
+      "main": [
+        [{ "node": "Verify Stripe Signature", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verify Stripe Signature": {
+      "main": [
+        [{ "node": "Route by Event Type", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [{ "node": "Sign Succeeded Payload", "type": "main", "index": 0 }],
+        [{ "node": "Sign Failed Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sign Succeeded Payload": {
+      "main": [
+        [{ "node": "POST payment-result (succeeded)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sign Failed Payload": {
+      "main": [
+        [{ "node": "POST payment-result (failed)", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST payment-result (succeeded)": {
+      "main": [
+        [{ "node": "Check Succeeded Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST payment-result (failed)": {
+      "main": [
+        [{ "node": "Check Failed Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Succeeded Response": {
+      "main": [
+        [{ "node": "Alert Admin — Payment Error", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Check Failed Response": {
+      "main": [
+        [{ "node": "Alert Admin — Payment Error", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "styleai-shop" }]
+}

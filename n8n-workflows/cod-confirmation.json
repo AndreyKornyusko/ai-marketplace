@@ -1,0 +1,208 @@
+{
+  "name": "cod-confirmation",
+  "nodes": [
+    {
+      "id": "cod-order-webhook-trigger",
+      "name": "COD Order Created Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cod-order-created",
+        "responseMode": "onReceived",
+        "responseData": "{\"received\": true}"
+      }
+    },
+    {
+      "id": "wait-1-hour",
+      "name": "Wait 1 Hour",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [480, 300],
+      "parameters": {
+        "amount": 1,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "get-order-status",
+      "name": "GET Order Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [710, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.NESTJS_BASE_URL }}/api/v1/orders/{{ $('COD Order Created Webhook').first().json.orderId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.N8N_INTERNAL_API_KEY }}" }
+          ]
+        },
+        "options": { "response": { "response": { "neverError": false } } }
+      }
+    },
+    {
+      "id": "check-still-pending",
+      "name": "Is Still PENDING?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "PENDING",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "send-cod-confirmation-email",
+      "name": "Send COD Confirmation Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1200, 200],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $json.guestEmail }}",
+        "subject": "Your COD order is confirmed — StyleAI Shop",
+        "text": "Hello,\n\nYour Cash on Delivery order #{{ $('COD Order Created Webhook').first().json.orderId }} has been confirmed.\n\nThank you for shopping with us!\n\nStyleAI Shop Team"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "sign-cod-confirmation-payload",
+      "name": "Sign COD Confirmation Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 200],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst payload = {\n  orderId: $('COD Order Created Webhook').first().json.orderId,\n  confirmedAt: new Date().toISOString()\n};\nconst body = JSON.stringify(payload);\nconst signature = 'sha256=' + crypto.createHmac('sha256', $env.WEBHOOK_SECRET).update(body).digest('hex');\nreturn [{ json: { ...payload, _signature: signature, _body: body } }];"
+      }
+    },
+    {
+      "id": "post-cod-confirmation",
+      "name": "POST cod-confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1680, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NESTJS_BASE_URL }}/api/v1/webhooks/cod-confirmation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Hub-Signature-256", "value": "={{ $json._signature }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json._body }}",
+        "options": { "response": { "response": { "neverError": false } } }
+      }
+    },
+    {
+      "id": "check-cod-confirmation-response",
+      "name": "Check COD Confirmation Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1920, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 400,
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "alert-admin-cod-error",
+      "name": "Alert Admin — COD Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [2160, 200],
+      "parameters": {
+        "fromEmail": "={{ $env.ADMIN_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL_TO }}",
+        "subject": "[StyleAI] COD confirmation webhook error",
+        "text": "COD confirmation webhook call to NestJS failed.\n\nOrder ID: {{ $('COD Order Created Webhook').first().json.orderId }}\nResponse: {{ JSON.stringify($json) }}"
+      },
+      "credentials": {
+        "smtp": { "id": "smtp-cred-id", "name": "StyleAI SMTP" }
+      }
+    },
+    {
+      "id": "log-order-not-pending",
+      "name": "Log — Order No Longer Pending",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1200, 400],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "COD Order Created Webhook": {
+      "main": [
+        [{ "node": "Wait 1 Hour", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 1 Hour": {
+      "main": [
+        [{ "node": "GET Order Status", "type": "main", "index": 0 }]
+      ]
+    },
+    "GET Order Status": {
+      "main": [
+        [{ "node": "Is Still PENDING?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Still PENDING?": {
+      "main": [
+        [{ "node": "Send COD Confirmation Email", "type": "main", "index": 0 }],
+        [{ "node": "Log — Order No Longer Pending", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send COD Confirmation Email": {
+      "main": [
+        [{ "node": "Sign COD Confirmation Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sign COD Confirmation Payload": {
+      "main": [
+        [{ "node": "POST cod-confirmation", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST cod-confirmation": {
+      "main": [
+        [{ "node": "Check COD Confirmation Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check COD Confirmation Response": {
+      "main": [
+        [{ "node": "Alert Admin — COD Error", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "styleai-shop" }]
+}

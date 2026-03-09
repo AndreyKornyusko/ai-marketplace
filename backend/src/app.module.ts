@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
     UsersModule,
     OrdersModule,
     AiAgentModule,
+    WebhooksModule,
   ],
   providers: [
     {
